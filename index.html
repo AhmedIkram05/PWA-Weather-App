@@ -4,26 +4,59 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>PWA Weather App</title>
+  <!-- Modern font -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#2196F3">
+  <meta name="theme-color" content="#0ea5a4">
 </head>
 <body>
-  <header>
-    <h1>PWA Weather App</h1>
+  <header class="site-header">
+    <div class="container header-inner">
+      <h1 class="brand">PWA Weather</h1>
+      <div class="brand-sub">Current &amp; Forecast • One Call 3.0</div>
+    </div>
   </header>
 
-  <main>
-    <section class="controls">
-      <input id="city-input" type="text" placeholder="Enter city (e.g., London)" aria-label="City name">
-      <button id="search-btn">Get Weather</button>
-      <button id="gps-btn">Use My Location</button>
+  <main class="container">
+    <section class="controls card controls-card">
+      <div class="search-row">
+        <input id="city-input" type="search" placeholder="Enter city (e.g., London)" aria-label="City name">
+        <div class="buttons">
+          <button id="search-btn" class="btn primary">Search</button>
+          <button id="gps-btn" class="btn">Use location</button>
+        </div>
+      </div>
+      <div class="options-row">
+        <div class="unit-toggle">
+          <label class="unit"><input type="radio" name="units" value="metric" id="unit-metric"> °C</label>
+          <label class="unit"><input type="radio" name="units" value="imperial" id="unit-imperial"> °F</label>
+        </div>
+        <div id="status" class="status" aria-live="polite"></div>
+      </div>
     </section>
 
-    <section id="status" aria-live="polite"></section>
+    <section id="weather" class="weather-grid">
+      <aside class="current-column">
+        <div id="current" class="card current-card">
+          <div class="current-top">
+            <div>
+              <div id="location" class="location">--</div>
+              <div id="condition" class="condition">--</div>
+            </div>
+            <div class="current-right">
+              <img id="weather-icon" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" alt="weather icon" aria-hidden="true">
+              <div id="current-temp" class="temp big">--</div>
+            </div>
+          </div>
+          <div id="current-details" class="details small muted"></div>
+        </div>
+      </aside>
 
-    <section id="weather" class="weather">
-      <!-- Weather output will be injected here -->
+      <section class="forecasts">
+        <div id="hourly" class="card hourly-card" aria-live="polite"></div>
+        <div id="daily" class="card daily-card" aria-live="polite"></div>
+      </section>
     </section>
   </main>
 

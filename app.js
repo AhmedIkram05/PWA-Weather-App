@@ -11,6 +11,13 @@ const searchBtn = document.getElementById('search-btn');
 const gpsBtn = document.getElementById('gps-btn');
 const statusEl = document.getElementById('status');
 const weatherEl = document.getElementById('weather');
+const unitMetric = document.getElementById('unit-metric');
+const unitImperial = document.getElementById('unit-imperial');
+
+let lastCoords = null; // {lat, lon, label}
+
+function getUnits(){ return localStorage.getItem('owm_units') || 'metric'; }
+function setUnits(u){ localStorage.setItem('owm_units', u); }
 
 // Init
 registerSW();
@@ -22,6 +29,11 @@ function attachListeners(){
   cityInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') handleCitySearch();
   });
+  // units toggle
+  const u = getUnits();
+  if (u === 'imperial') unitImperial.checked = true; else unitMetric.checked = true;
+  unitMetric.addEventListener('change', () => { setUnits('metric'); if (lastCoords) fetchAndRender(lastCoords.lat, lastCoords.lon, lastCoords.label); });
+  unitImperial.addEventListener('change', () => { setUnits('imperial'); if (lastCoords) fetchAndRender(lastCoords.lat, lastCoords.lon, lastCoords.label); });
 }
 
 function setStatus(msg, cls){
@@ -99,6 +111,7 @@ async function getWeatherByGPS(){
 async function fetchAndRender(lat, lon, label){
   setStatus('Loading weather...', 'loading');
   weatherEl.innerHTML = '';
+  lastCoords = {lat, lon, label};
   try{
     const data = await fetchOneCall(lat, lon);
     if (!data) { setStatus('Weather data unavailable.', 'error'); return; }
@@ -111,7 +124,7 @@ async function fetchAndRender(lat, lon, label){
 }
 
 // Caching policy: current 10min, hourly 1h, daily 6h
-function cacheKey(lat, lon){ return `owm_${lat.toFixed(3)}_${lon.toFixed(3)}`; }
+function cacheKey(lat, lon){ return `owm_${lat.toFixed(3)}_${lon.toFixed(3)}_${getUnits()}`; }
 
 function getCached(lat, lon){
   try{
@@ -148,7 +161,8 @@ async function fetchOneCall(lat, lon){
   }
 
   // Build One Call URL - exclude minutely and alerts to reduce payload
-  const url = `${ONECALL_API}?lat=${lat}&lon=${lon}&units=metric&exclude=minutely,alerts&appid=${OWM_KEY}`;
+  const units = getUnits();
+  const url = `${ONECALL_API}?lat=${lat}&lon=${lon}&units=${units}&exclude=minutely,alerts&appid=${OWM_KEY}`;
   const resp = await fetch(url);
   if (!resp.ok){
     // if 4xx/5xx try cache fallback
@@ -167,56 +181,69 @@ function renderWeather(payload, label){
   const hourly = payload.hourly || [];
   const daily = payload.daily || [];
 
-  const container = document.createElement('div');
-  container.className = 'card';
+  // update header fields
+  const locEl = document.getElementById('location');
+  const condEl = document.getElementById('condition');
+  const iconEl = document.getElementById('weather-icon');
+  const tempEl = document.getElementById('current-temp');
+  const detailsEl = document.getElementById('current-details');
+  const hourlyEl = document.getElementById('hourly');
+  const dailyEl = document.getElementById('daily');
 
-  const header = document.createElement('div'); header.className = 'row';
-  const loc = document.createElement('div'); loc.innerHTML = `<div class="small">${label || ''}</div>`;
-  const temp = document.createElement('div'); temp.className = 'temp'; temp.textContent = cur ? `${Math.round(cur.temp)}°C` : '—';
-  header.appendChild(loc); header.appendChild(temp);
-  container.appendChild(header);
+  locEl.textContent = label || '';
+  condEl.textContent = cur && cur.weather && cur.weather[0] ? capitalize(cur.weather[0].description) : '';
+  if (cur && cur.weather && cur.weather[0]){
+    const ic = cur.weather[0].icon;
+    iconEl.src = `https://openweathermap.org/img/wn/${ic}@4x.png`;
+    iconEl.alt = cur.weather[0].description || 'weather';
+  }
+  const unitSym = getUnits() === 'metric' ? '°C' : '°F';
+  tempEl.textContent = cur ? `${Math.round(cur.temp)}${unitSym}` : '--';
 
+  // details
+  detailsEl.innerHTML = '';
   if (cur){
-    const desc = document.createElement('div'); desc.className = 'small';
-    desc.textContent = cur.weather && cur.weather[0] ? cur.weather[0].description : '';
-    container.appendChild(desc);
+    const feels = document.createElement('div'); feels.textContent = `Feels like: ${Math.round(cur.feels_like)}${unitSym}`;
+    const hum = document.createElement('div'); hum.textContent = `Humidity: ${cur.humidity}%`;
+    const wind = document.createElement('div'); wind.textContent = `Wind: ${cur.wind_speed} ${getUnits() === 'metric' ? 'm/s' : 'mph'}`;
+    detailsEl.appendChild(feels); detailsEl.appendChild(hum); detailsEl.appendChild(wind);
   }
 
-  // hourly preview
-  if (hourly.length){
-    const hCard = document.createElement('div'); hCard.className = 'card';
-    hCard.innerHTML = '<div class="small">Hourly</div>';
-    const hwrap = document.createElement('div'); hwrap.className = 'hourly';
-    hourly.slice(0,12).forEach(h => {
-      const it = document.createElement('div'); it.className = 'item';
-      const dt = new Date(h.dt * 1000);
-      it.innerHTML = `<div class="small">${dt.getHours()}:00</div><div class="temp">${Math.round(h.temp)}°C</div>`;
-      hwrap.appendChild(it);
-    });
-    hCard.appendChild(hwrap);
-    container.appendChild(hCard);
-  }
+  // hourly
+  hourlyEl.innerHTML = '<div class="small">Hourly</div>'; 
+  const hwrap = document.createElement('div'); hwrap.className='hourly';
+  hourly.slice(0,12).forEach(h =>{
+    const it = document.createElement('div'); it.className='item';
+    const dt = new Date(h.dt*1000);
+    it.innerHTML = `<div class="small">${dt.getHours()}:00</div><div class="temp">${Math.round(h.temp)}${unitSym}</div>`;
+    hwrap.appendChild(it);
+  });
+  hourlyEl.appendChild(hwrap);
 
-  // daily preview
-  if (daily.length){
-    const dCard = document.createElement('div'); dCard.className = 'card';
-    dCard.innerHTML = '<div class="small">Daily</div>';
-    daily.slice(0,7).forEach(d=>{
-      const row = document.createElement('div'); row.className='row small';
-      const dt = new Date(d.dt*1000);
-      row.innerHTML = `<div style="flex:1">${dt.toDateString()}</div><div>${Math.round(d.temp.day)}°C</div>`;
-      dCard.appendChild(row);
-    });
-    container.appendChild(dCard);
-  }
+  // daily
+  dailyEl.innerHTML = '<div class="small">Daily</div>';
+  daily.slice(0,7).forEach(d=>{
+    const row = document.createElement('div'); row.className='row small';
+    const dt = new Date(d.dt*1000);
+    row.innerHTML = `<div>${dt.toDateString()}</div><div>${Math.round(d.temp.day)}${unitSym}</div>`;
+    dailyEl.appendChild(row);
+  });
 
-  // last updated
+  // last updated (from cache timestamp if available)
+  const key = cacheKey(lastCoords.lat, lastCoords.lon);
+  const raw = localStorage.getItem(key);
+  let updatedTs = Date.now();
+  if (raw) try{ updatedTs = JSON.parse(raw).ts || Date.now(); }catch(e){}
   const updated = document.createElement('div'); updated.className='small';
-  updated.textContent = 'Last updated: ' + new Date().toLocaleString();
-  container.appendChild(updated);
-
-  weatherEl.innerHTML = ''; weatherEl.appendChild(container);
+  updated.textContent = 'Last updated: ' + new Date(updatedTs).toLocaleString();
+  weatherEl.innerHTML = '';
+  weatherEl.appendChild(document.getElementById('current'));
+  weatherEl.appendChild(hourlyEl);
+  weatherEl.appendChild(dailyEl);
+  weatherEl.appendChild(updated);
 }
+
+function capitalize(s){ if (!s) return ''; return s.charAt(0).toUpperCase() + s.slice(1); }
 
 function registerSW(){
   if ('serviceWorker' in navigator){

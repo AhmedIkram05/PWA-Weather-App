@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PWA Weather App</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#2196F3">
+</head>
+<body>
+  <header>
+    <h1>PWA Weather App</h1>
+  </header>
+
+  <main>
+    <section class="controls">
+      <input id="city-input" type="text" placeholder="Enter city (e.g., London)" aria-label="City name">
+      <button id="search-btn">Get Weather</button>
+      <button id="gps-btn">Use My Location</button>
+    </section>
+
+    <section id="status" aria-live="polite"></section>
+
+    <section id="weather" class="weather">
+      <!-- Weather output will be injected here -->
+    </section>
+  </main>
+
+  <footer>
+    <small>Data from OpenWeatherMap One Call API 3.0</small>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
